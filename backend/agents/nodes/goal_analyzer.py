@@ -24,7 +24,7 @@ def _get_supabase():
         ) from exc
 
     url: str | None = os.environ.get("SUPABASE_URL")
-    service_key: str | None = os.environ.get("SUPABASE_SERVICE_KEY")
+    service_key: str | None = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if not url or not service_key:
         raise EnvironmentError(

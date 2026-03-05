@@ -244,7 +244,7 @@ async def daily_summary(user_id: str = Query(..., description="Supabase user UUI
             supabase.table("daily_logs")
             .select("*")
             .eq("user_id", user_id)
-            .eq("date", today)
+            .eq("log_date", today)
             .single()
             .execute()
         )
@@ -290,8 +290,8 @@ async def leaderboard():
         # Fetch today's logs for all users
         logs_resp = (
             supabase.table("daily_logs")
-            .select("user_id, today_total_calories, today_total_protein, calories_burned")
-            .eq("date", today)
+            .select("user_id, total_calories, total_protein, total_fat")
+            .eq("log_date", today)
             .execute()
         )
         logs_by_user = {row["user_id"]: row for row in (logs_resp.data or [])}
@@ -304,14 +304,14 @@ async def leaderboard():
                 {
                     "user_id": uid,
                     "name": user.get("name") or user.get("email", "Unknown"),
-                    "today_total_calories": log.get("today_total_calories", 0.0),
-                    "today_total_protein": log.get("today_total_protein", 0.0),
-                    "calories_burned": log.get("calories_burned", 0.0),
+                    "total_calories": log.get("total_calories", 0.0),
+                    "total_protein": log.get("total_protein", 0.0),
+                    "total_fat": log.get("total_fat", 0.0),
                 }
             )
 
         # Sort descending by calorie intake
-        board.sort(key=lambda x: x["today_total_calories"], reverse=True)
+        board.sort(key=lambda x: x["total_calories"], reverse=True)
 
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Leaderboard query failed: {exc}")
@@ -396,9 +396,9 @@ async def suggestions(user_id: str = Query(..., description="Supabase user UUID"
         supabase = get_supabase_client()
         resp = (
             supabase.table("daily_logs")
-            .select("recommendation, date, updated_at")
+            .select("log_date, total_calories, total_protein, total_carbs, total_fat")
             .eq("user_id", user_id)
-            .order("updated_at", desc=True)
+            .order("log_date", desc=True)
             .limit(1)
             .execute()
         )
@@ -411,8 +411,11 @@ async def suggestions(user_id: str = Query(..., description="Supabase user UUID"
 
     latest = rows[0]
     return {
-        "suggestion": latest.get("recommendation"),
-        "date": latest.get("date"),
+        "log_date": latest.get("log_date"),
+        "total_calories": latest.get("total_calories", 0.0),
+        "total_protein": latest.get("total_protein", 0.0),
+        "total_carbs": latest.get("total_carbs", 0.0),
+        "total_fat": latest.get("total_fat", 0.0),
     }
 
 

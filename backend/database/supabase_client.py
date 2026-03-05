@@ -36,7 +36,7 @@ def get_supabase_client() -> Client:
         ValueError: if either environment variable is missing or empty.
     """
     url: str = os.environ.get("SUPABASE_URL", "").strip()
-    service_key: str = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    service_key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 
     if not url:
         raise ValueError(
@@ -45,8 +45,8 @@ def get_supabase_client() -> Client:
         )
     if not service_key:
         raise ValueError(
-            "SUPABASE_SERVICE_KEY is not set. "
-            "Add it to your .env file: SUPABASE_SERVICE_KEY=<service_role_jwt>"
+            "SUPABASE_SERVICE_ROLE_KEY is not set. "
+            "Add it to your .env file: SUPABASE_SERVICE_ROLE_KEY=<service_role_jwt>"
         )
 
     return create_client(url, service_key)

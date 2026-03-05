@@ -68,7 +68,7 @@ def _load_model():
 
     model_path = os.path.join(
         os.path.dirname(__file__),   # …/backend/agents/nodes/
-        "..", "..", "..", "models", "food_classifier.keras"
+        "..", "..", "models", "food_classifier.keras"
     )
     model_path = os.path.normpath(model_path)
 

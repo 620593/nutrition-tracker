@@ -22,7 +22,7 @@ def recommender(state: NutritionState) -> NutritionState:
     # ── Lazy import ──────────────────────────────────────────────────────────
     try:
         from langchain_google_genai import ChatGoogleGenerativeAI
-        from langchain.schema import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
     except ImportError as exc:  # pragma: no cover
         state["error"] = f"recommender: missing dependency — {exc}"
         return state
