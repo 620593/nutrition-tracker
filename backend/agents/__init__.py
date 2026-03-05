@@ -6,4 +6,4 @@ will also handle graph compilation configuration and optional tracing setup.
 """
 
 from .graph import nutrition_graph
-from .state import AgentState
+from .state import NutritionState
