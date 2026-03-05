@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+backend/.env
+frontend/.env
+__pycache__/
+node_modules/
+*.pyc
+.env
+.venv

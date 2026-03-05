@@ -1,0 +1,5 @@
+# .gitkeep
+# This file exists solely to allow Git to track the otherwise empty models folder.
+# When fully implemented, this folder will contain Pydantic model definitions that
+# describe the shape of request and response payloads for all API endpoints.
+# It may also hold shared data models used across multiple nodes in the agent pipeline.

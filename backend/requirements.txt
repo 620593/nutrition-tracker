@@ -1,0 +1,21 @@
+# requirements.txt
+# This file lists all Python dependencies required to run the Nutrition Tracker backend.
+# It includes packages for the API server, LangGraph agent framework, Supabase client,
+# Gemini LLM integration, ML/vision libraries, and environment variable management.
+# Run `pip install -r requirements.txt` to install all dependencies.
+
+fastapi==0.115.6
+uvicorn==0.32.1
+python-dotenv==1.0.1
+supabase==2.10.0
+langchain==0.3.20
+langgraph==0.2.73
+langchain-google-genai==2.0.8
+transformers==4.47.1
+torch==2.5.1
+tensorflow==2.18.0
+numpy==1.26.4
+pillow==11.1.0
+python-multipart==0.0.20
+httpx==0.27.2
+pydantic==2.10.4
