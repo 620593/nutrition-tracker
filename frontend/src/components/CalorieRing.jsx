@@ -11,8 +11,8 @@ import React, { useState, useEffect } from "react";
 export default function CalorieRing({ data }) {
   const [offset, setOffset] = useState(0);
 
-  const consumed = data?.calories_consumed || 0;
-  const goal = data?.calorie_goal || 2000;
+  const consumed = data?.daily_log?.total_calories || 0;
+  const goal = data?.daily_goals?.calorie_goal || 0;
 
   const radius = 60;
   const strokeWidth = 12;
@@ -33,8 +33,9 @@ export default function CalorieRing({ data }) {
   const initialOffset = circumference;
   const currentOffset = offset === 0 ? initialOffset : offset;
 
-  const exceedsGoal = consumed > goal;
+  const exceedsGoal = goal > 0 && consumed > goal;
   const strokeColor = exceedsGoal ? "text-yellow-500" : "text-green-500";
+  const noGoalSet = goal === 0;
 
   return (
     <div className="flex flex-col items-center justify-center">
@@ -83,7 +84,7 @@ export default function CalorieRing({ data }) {
       </div>
       <div className="mt-4 text-center">
         <p className="text-zinc-400 text-sm font-medium">
-          Goal {goal} calories
+          {noGoalSet ? "No goal set yet" : `Goal ${goal} calories`}
         </p>
       </div>
     </div>

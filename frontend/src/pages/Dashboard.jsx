@@ -89,10 +89,10 @@ export default function Dashboard() {
     );
   }
 
-  const calConsumed = data?.calories_consumed || 0;
-  const protConsumed = data?.protein_consumed || 0;
-  const calBurned = data?.calories_burned || 0;
-  const calGoal = data?.calorie_goal || 2000;
+  const calConsumed = data?.daily_log?.total_calories || 0;
+  const protConsumed = data?.daily_log?.total_protein || 0;
+  const calBurned = data?.daily_log?.total_calories_burned || 0;
+  const calGoal = data?.daily_goals?.calorie_goal || 2000;
   const calRemaining = Math.max(0, calGoal - calConsumed);
 
   return (

@@ -399,7 +399,7 @@ async def suggestions(user_id: str = Query(..., description="Supabase user UUID"
         supabase = get_supabase_client()
         resp = (
             supabase.table("daily_logs")
-            .select("log_date, total_calories, total_protein, total_carbs, total_fat")
+            .select("log_date, total_calories, total_protein, total_carbs, total_fat, total_calories_burned")
             .eq("user_id", user_id)
             .order("log_date", desc=True)
             .limit(1)
@@ -419,6 +419,7 @@ async def suggestions(user_id: str = Query(..., description="Supabase user UUID"
         "total_protein": latest.get("total_protein", 0.0),
         "total_carbs": latest.get("total_carbs", 0.0),
         "total_fat": latest.get("total_fat", 0.0),
+        "total_calories_burned": latest.get("total_calories_burned", 0.0),
     }
 
 

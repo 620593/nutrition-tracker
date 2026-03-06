@@ -20,6 +20,13 @@ apiClient.interceptors.request.use(
     } = await supabase.auth.getSession();
     if (session?.access_token) {
       config.headers.Authorization = `Bearer ${session.access_token}`;
+    } else {
+      // No active session — request will proceed without Authorization header.
+      // This is intentional for public endpoints; protected endpoints will 401.
+      console.warn(
+        "[apiClient] No active session — request sent without Authorization header.",
+        config.url,
+      );
     }
     return config;
   },

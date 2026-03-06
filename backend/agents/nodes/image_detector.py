@@ -5,6 +5,11 @@ loaded only once per process lifetime.  The image is loaded with PIL, resized to
 224×224, normalised, and fed to model.predict().  The top-3 predicted Food-101 class
 names are stored in state['detected_foods'], 150.0 g each as placeholder quantities,
 and the raw softmax scores in state['confidence_scores'].
+
+If the model file is missing, corrupt, or incompatible (e.g. BatchNormalization
+input_spec mismatch across TF versions), the module-level cache is set to None,
+a warning is printed, and the node returns graceful fallback values instead of
+crashing the server.
 """
 
 import os
@@ -16,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ── Module-level model cache (loaded only once) ───────────────────────────────
 _keras_model = None
+_model_load_attempted = False  # guard so we only attempt once per process
 
 # ── Food-101 class labels (101 classes, alphabetical order) ───────────────────
 FOOD101_CLASSES: list[str] = [
@@ -41,30 +47,47 @@ FOOD101_CLASSES: list[str] = [
     "sushi", "tacos", "takoyaki", "tiramisu", "tuna_tartare", "waffles",
 ]
 
-# Guarantee exactly 101 entries (pad with placeholders if the list grows/shrinks)
+# Guarantee exactly 101 entries
 assert len(FOOD101_CLASSES) == 101, (
     f"FOOD101_CLASSES must have 101 entries, got {len(FOOD101_CLASSES)}"
 )
 
 
 def _load_model():
-    """Load the Keras model from disk (or return cached instance)."""
-    global _keras_model
-    if _keras_model is not None:
+    """
+    Load the Keras model from disk (or return cached instance).
+
+    This function is completely safe to call even when:
+    - TensorFlow / Keras is not installed
+    - The model file is missing
+    - The model file is corrupt or has a BatchNormalization input_spec mismatch
+
+    In all failure cases, _keras_model remains None and a warning is printed.
+    The function NEVER raises.
+    """
+    global _keras_model, _model_load_attempted
+
+    if _model_load_attempted:
+        # Return whatever we have (could be None if loading failed before)
         return _keras_model
 
+    _model_load_attempted = True
+
     # ── Lazy import of Keras / TensorFlow ────────────────────────────────────
+    keras = None
     try:
         import tensorflow as tf  # noqa: F401 — needed to register Keras backend
-        from tensorflow import keras
+        from tensorflow import keras  # type: ignore
     except ImportError:
         try:
-            import keras  # standalone keras ≥ 3.x
-        except ImportError as exc:
-            raise ImportError(
-                "Neither tensorflow nor keras is installed. "
-                "Install one of them to use image detection."
-            ) from exc
+            import keras  # type: ignore  # standalone keras ≥ 3.x
+        except ImportError:
+            print(
+                "[image_detector] WARNING – Neither tensorflow nor keras is installed. "
+                "Image-based food classification is unavailable. "
+                "Install tensorflow or keras to enable this feature."
+            )
+            return None
 
     model_path = os.path.join(
         os.path.dirname(__file__),   # …/backend/agents/nodes/
@@ -73,13 +96,28 @@ def _load_model():
     model_path = os.path.normpath(model_path)
 
     if not os.path.isfile(model_path):
-        raise FileNotFoundError(
-            f"Keras model not found at '{model_path}'. "
-            "Please place food_classifier.keras in the models/ directory."
+        print(
+            f"[image_detector] WARNING – Keras model not found at '{model_path}'. "
+            "Place food_classifier.keras in the models/ directory to enable image detection. "
+            "Running in fallback mode (unknown food)."
         )
+        return None
 
-    _keras_model = keras.models.load_model(model_path)
-    logger.info("image_detector: loaded Keras model from %s", model_path)
+    # ── Attempt to load; catch ALL exceptions including BatchNorm input_spec ──
+    try:
+        _keras_model = keras.models.load_model(model_path)
+        logger.info("image_detector: loaded Keras model from %s", model_path)
+    except Exception as exc:
+        print(
+            f"[image_detector] WARNING – Failed to load Keras model from '{model_path}'. "
+            f"Error: {exc}. "
+            "This is often caused by a TensorFlow/Keras version mismatch or a corrupt model file "
+            "(e.g. BatchNormalization input_spec incompatibility). "
+            "Running in fallback mode (unknown food). "
+            "To fix: retrain the model with your current TF version or update tensorflow."
+        )
+        _keras_model = None
+
     return _keras_model
 
 
@@ -87,9 +125,11 @@ def image_detector(state: NutritionState) -> NutritionState:
     """
     Load the image from state['image_path'], run the Food-101 Keras classifier,
     and store the top-3 predictions in state.
-    """
-    from PIL import Image  # required: Pillow
 
+    If the Keras model is unavailable (missing, corrupt, or version-incompatible),
+    immediately returns graceful fallback values: detected_foods=['unknown'],
+    detected_quantities=[150.0], confidence_scores=[0.0].
+    """
     image_path: str | None = state.get("image_path")
 
     if not image_path:
@@ -102,26 +142,35 @@ def image_detector(state: NutritionState) -> NutritionState:
         )
         return state
 
+    # ── Check model availability BEFORE loading the image ─────────────────────
+    model = _load_model()
+    if model is None:
+        logger.warning(
+            "image_detector: Keras model unavailable — returning fallback for '%s'.", image_path
+        )
+        state["detected_foods"] = ["unknown"]
+        state["detected_quantities"] = [150.0]
+        state["confidence_scores"] = [0.0]
+        return state
+
     # ── Load and preprocess the image ─────────────────────────────────────────
     try:
+        from PIL import Image  # noqa: PLC0415 — deferred to avoid crash if Pillow missing
         img = Image.open(image_path).convert("RGB")
         img = img.resize((224, 224))
         img_array = np.array(img, dtype=np.float32) / 255.0   # normalise to [0, 1]
         img_array = np.expand_dims(img_array, axis=0)          # shape: (1, 224, 224, 3)
+    except ImportError:
+        state["error"] = (
+            "image_detector: Pillow is not installed. "
+            "Run `pip install pillow` to enable image processing."
+        )
+        return state
     except Exception as exc:
         state["error"] = f"image_detector: image preprocessing failed — {exc}"
         return state
 
-    # ── Load model and run prediction ─────────────────────────────────────────
-    try:
-        model = _load_model()
-    except FileNotFoundError as exc:
-        state["error"] = str(exc)
-        return state
-    except Exception as exc:
-        state["error"] = f"image_detector: model load error — {exc}"
-        return state
-
+    # ── Run prediction ─────────────────────────────────────────────────────────
     try:
         predictions = model.predict(img_array, verbose=0)  # shape: (1, 101)
         scores: np.ndarray = predictions[0]                # shape: (101,)

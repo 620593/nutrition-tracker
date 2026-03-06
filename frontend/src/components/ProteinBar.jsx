@@ -11,8 +11,8 @@ import React, { useState, useEffect } from "react";
 export default function ProteinBar({ data }) {
   const [width, setWidth] = useState(0);
 
-  const consumed = data?.protein_consumed || 0;
-  const goal = data?.protein_goal || 100; // default to 100g if not specified
+  const consumed = data?.daily_log?.total_protein || 0;
+  const goal = data?.daily_goals?.protein_goal || 0;
   const unit = "g";
 
   useEffect(() => {
@@ -24,7 +24,8 @@ export default function ProteinBar({ data }) {
     return () => clearTimeout(timeout);
   }, [consumed, goal]);
 
-  const exceedsGoal = consumed >= goal;
+  const noGoalSet = goal === 0;
+  const exceedsGoal = !noGoalSet && consumed >= goal;
   const remaining = Math.max(0, goal - consumed);
   const barColor = exceedsGoal ? "bg-yellow-500" : "bg-green-500";
 
@@ -50,7 +51,11 @@ export default function ProteinBar({ data }) {
       </div>
 
       <div className="mt-2 text-right">
-        {exceedsGoal ? (
+        {noGoalSet ? (
+          <span className="text-zinc-500 text-sm font-medium">
+            No goal set yet
+          </span>
+        ) : exceedsGoal ? (
           <span className="text-green-500 text-sm font-medium">
             Goal reached!
           </span>

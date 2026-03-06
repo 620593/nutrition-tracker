@@ -12,6 +12,12 @@ from agents.state import NutritionState
 
 logger = logging.getLogger(__name__)
 
+# ── Lazy-import the HuggingFace pipeline at module level so tests can patch it ──
+try:
+    from transformers import pipeline as hf_pipeline  # type: ignore
+except ImportError:
+    hf_pipeline = None  # type: ignore
+
 
 def stt_node(state: NutritionState) -> NutritionState:
     """
@@ -20,11 +26,9 @@ def stt_node(state: NutritionState) -> NutritionState:
     in state['raw_input'].  On success, state['input_type'] is reset to 'text'.
     On any error, state['error'] is set and the state is returned early.
     """
-    # ── Lazy import to keep startup fast when voice is not used ───────────────
-    try:
-        from transformers import pipeline as hf_pipeline
-    except ImportError as exc:  # pragma: no cover
-        state["error"] = f"transformers library not installed: {exc}"
+    # Guard: transformers must be available
+    if hf_pipeline is None:
+        state["error"] = "stt_node: transformers library is not installed."
         return state
 
     audio_path: str | None = state.get("image_path")
@@ -58,7 +62,15 @@ def stt_node(state: NutritionState) -> NutritionState:
     # ── Run transcription ─────────────────────────────────────────────────────
     try:
         result = whisper(audio_path)
-        transcript: str = result.get("text", "").strip()
+        # HF pipeline may return a list of segment dicts or a single dict
+        if isinstance(result, list):
+            transcript: str = " ".join(
+                seg.get("text", "") for seg in result if isinstance(seg, dict)
+            ).strip()
+        elif isinstance(result, dict):
+            transcript = result.get("text", "").strip()
+        else:
+            transcript = str(result).strip()
     except Exception as exc:
         state["error"] = f"stt_node: transcription failed — {exc}"
         return state

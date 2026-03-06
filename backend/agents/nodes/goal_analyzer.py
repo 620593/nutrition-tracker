@@ -28,7 +28,7 @@ def _get_supabase():
 
     if not url or not service_key:
         raise EnvironmentError(
-            "goal_analyzer: SUPABASE_URL and/or SUPABASE_SERVICE_KEY "
+            "goal_analyzer: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY "
             "environment variables are not set."
         )
 

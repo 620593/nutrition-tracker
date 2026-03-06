@@ -41,6 +41,7 @@ export default function LogExercise() {
 
       setResult(response.data);
     } catch (err) {
+      console.error("[LogExercise] handleSubmit error:", err);
       setError(
         err.response?.data?.detail || err.message || "An error occurred",
       );

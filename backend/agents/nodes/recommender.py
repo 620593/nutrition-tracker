@@ -1,5 +1,5 @@
 """
-This node generates personalised meal recommendations using Gemini-2.0-flash.
+This node generates personalised meal recommendations using Groq llama-3.3-70b-versatile.
 It reads the nutrient deficits from state['dashboard_data']['deficits'] and prompts
 the model to suggest three Indian hostel-friendly foods that would help the user meet
 their remaining daily targets.  The generated text is stored in state['recommendation']
@@ -13,23 +13,23 @@ from agents.state import NutritionState
 
 logger = logging.getLogger(__name__)
 
+# ── Module-level imports so tests can patch agents.nodes.recommender.ChatGroq ──
+try:
+    from langchain_groq import ChatGroq  # type: ignore
+    from langchain_core.messages import HumanMessage, SystemMessage  # type: ignore
+except ImportError:
+    ChatGroq = None  # type: ignore
+    HumanMessage = None  # type: ignore
+    SystemMessage = None  # type: ignore
+
 
 def recommender(state: NutritionState) -> NutritionState:
     """
-    Call Gemini with deficit context and produce a short, actionable recommendation.
+    Call Groq LLaMA with deficit context and produce a short, actionable recommendation.
     Populate state['recommendation'] and state['dashboard_data'].
     """
-    # ── Lazy import ──────────────────────────────────────────────────────────
-    try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        from langchain_core.messages import HumanMessage, SystemMessage
-    except ImportError as exc:  # pragma: no cover
-        state["error"] = f"recommender: missing dependency — {exc}"
-        return state
-
-    gemini_api_key: str | None = os.environ.get("GEMINI_API_KEY")
-    if not gemini_api_key:
-        state["error"] = "recommender: GEMINI_API_KEY environment variable is not set."
+    if ChatGroq is None:
+        state["error"] = "recommender: langchain_groq is not installed."
         return state
 
     # ── Pull deficit data from state ─────────────────────────────────────────
@@ -69,11 +69,8 @@ def recommender(state: NutritionState) -> NutritionState:
         "write naturally as if talking to a friend."
     )
 
-    # ── Initialise Gemini ─────────────────────────────────────────────────────
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash",
-        google_api_key=gemini_api_key,
-    )
+    # ── Initialise the Groq LLM ─────────────────────────────────────────────
+    llm = ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=os.getenv("GROQ_API_KEY"))
 
     # ── Call the model ────────────────────────────────────────────────────────
     try:
@@ -83,7 +80,7 @@ def recommender(state: NutritionState) -> NutritionState:
         ])
         recommendation: str = response.content.strip()
     except Exception as exc:
-        state["error"] = f"recommender: Gemini API call failed — {exc}"
+        state["error"] = f"recommender: LLM API call failed — {exc}"
         return state
 
     # ── Write recommendation to state ─────────────────────────────────────────

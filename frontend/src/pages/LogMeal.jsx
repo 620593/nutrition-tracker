@@ -146,10 +146,14 @@ export default function LogMeal() {
       } else if (activeTab === "Photo") {
         if (!imageFile) throw new Error("Please select an image.");
         formData.append("image", imageFile);
+        // raw_input is required by backend even for image uploads
+        formData.append("raw_input", "");
       } else if (activeTab === "Voice") {
         if (!audioBlob)
           throw new Error("Please record your meal description first.");
         formData.append("audio", audioBlob, "recording.webm");
+        // raw_input is required by backend even for voice uploads
+        formData.append("raw_input", "");
       }
 
       const response = await apiClient.post("/log-meal", formData, {
@@ -338,9 +342,9 @@ export default function LogMeal() {
             <h2 className="text-2xl font-bold text-green-500">
               Meal Logged Successfully!
             </h2>
-            {result.ai_recommendation_text && (
+            {result.recommendation && (
               <p className="text-zinc-300 mt-2 italic">
-                "{result.ai_recommendation_text}"
+                &ldquo;{result.recommendation}&rdquo;
               </p>
             )}
           </div>
@@ -350,12 +354,10 @@ export default function LogMeal() {
               Detected Items
             </h3>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
-              {(result.detected_food_items || []).map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-              {(!result.detected_food_items ||
-                result.detected_food_items.length === 0) && (
-                <li className="text-zinc-500">No specific items listed</li>
+              {Object.keys(result.nutrition || {}).length === 0 ? (
+                <li className="text-zinc-500">No nutrition data returned</li>
+              ) : (
+                <li>Meal analyzed — see macros below</li>
               )}
             </ul>
           </div>
@@ -366,7 +368,7 @@ export default function LogMeal() {
                 Calories
               </p>
               <p className="font-bold text-white text-lg">
-                {result.calories || 0}
+                {result.nutrition?.calories || 0}
               </p>
             </div>
             <div className="bg-zinc-900 p-3 rounded-lg">
@@ -374,7 +376,7 @@ export default function LogMeal() {
                 Protein
               </p>
               <p className="font-bold text-white text-lg">
-                {result.protein || 0}g
+                {result.nutrition?.protein || 0}g
               </p>
             </div>
             <div className="bg-zinc-900 p-3 rounded-lg">
@@ -382,14 +384,16 @@ export default function LogMeal() {
                 Carbs
               </p>
               <p className="font-bold text-white text-lg">
-                {result.carbs || 0}g
+                {result.nutrition?.carbs || 0}g
               </p>
             </div>
             <div className="bg-zinc-900 p-3 rounded-lg">
               <p className="text-xs text-zinc-400 uppercase tracking-wide">
                 Fat
               </p>
-              <p className="font-bold text-white text-lg">{result.fat || 0}g</p>
+              <p className="font-bold text-white text-lg">
+                {result.nutrition?.fat || 0}g
+              </p>
             </div>
           </div>
         </div>

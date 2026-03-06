@@ -14,7 +14,7 @@ export default function Leaderboard() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentUserEmail, setCurrentUserEmail] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const fetchLeaderboard = async () => {
@@ -24,13 +24,18 @@ export default function Leaderboard() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setCurrentUserEmail(user?.email || "");
+      setCurrentUserId(user?.id || "");
 
       const response = await apiClient.get("/leaderboard");
-      setData(response.data || []);
+      setData(response.data.leaderboard || []);
       setLastUpdated(new Date());
     } catch (err) {
-      setError(err.message || "Failed to fetch leaderboard.");
+      console.error("[Leaderboard] fetchLeaderboard error:", err);
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to fetch leaderboard.",
+      );
     } finally {
       setLoading(false);
     }
@@ -92,9 +97,9 @@ export default function Leaderboard() {
                   <th className="p-4 font-semibold">User</th>
                   <th className="p-4 font-semibold text-center">Calories</th>
                   <th className="p-4 font-semibold text-center">Protein</th>
-                  <th className="p-4 font-semibold text-center">Burned</th>
+                  <th className="p-4 font-semibold text-center">Fat</th>
                   <th className="p-4 font-semibold w-1/3">
-                    Daily Goal (2000 kcal)
+                    Calorie Goal (2000 kcal)
                   </th>
                 </tr>
               </thead>
@@ -114,8 +119,8 @@ export default function Leaderboard() {
                 ) : (
                   data.map((row, index) => {
                     const rank = index + 1;
-                    const isCurrentUser = row.email === currentUserEmail;
-                    const calConsumed = row.calories_consumed || 0;
+                    const isCurrentUser = row.user_id === currentUserId;
+                    const calConsumed = row.total_calories || 0;
                     const progressPercent = Math.min(
                       100,
                       Math.max(0, (calConsumed / 2000) * 100),
@@ -137,16 +142,16 @@ export default function Leaderboard() {
                         <td
                           className={`p-4 font-medium ${isCurrentUser ? "text-green-500" : "text-white"}`}
                         >
-                          {getShortEmail(row.email)}
+                          {row.name}
                         </td>
                         <td className="p-4 text-center font-semibold">
                           {calConsumed}
                         </td>
                         <td className="p-4 text-center">
-                          {row.protein_consumed || 0}g
+                          {row.total_protein || 0}g
                         </td>
                         <td className="p-4 text-center text-zinc-400">
-                          {row.calories_burned || 0} kcal
+                          {row.total_fat || 0}g
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-3">
