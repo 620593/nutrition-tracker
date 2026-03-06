@@ -214,9 +214,9 @@ async def log_exercise(req: LogExerciseRequest):
             {
                 "user_id": req.user_id,
                 "exercise_type": exercise_type,
-                "duration_minutes": req.duration_minutes,
+                "duration_minutes": int(req.duration_minutes),
                 "calories_burned": calories_burned,
-                "logged_at": date.today().isoformat(),
+                # logged_at omitted — DB column is timestamptz with default now()
             }
         ).execute()
     except Exception as exc:
@@ -245,7 +245,7 @@ async def daily_summary(user_id: str = Query(..., description="Supabase user UUI
             .select("*")
             .eq("user_id", user_id)
             .eq("log_date", today)
-            .single()
+            .limit(1)
             .execute()
         )
 
@@ -253,16 +253,19 @@ async def daily_summary(user_id: str = Query(..., description="Supabase user UUI
             supabase.table("daily_goals")
             .select("*")
             .eq("user_id", user_id)
-            .single()
+            .limit(1)
             .execute()
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database query failed: {exc}")
 
+    log_rows = log_resp.data or []
+    goal_rows = goals_resp.data or []
+
     return {
         "date": today,
-        "daily_log": log_resp.data or {},
-        "daily_goals": goals_resp.data or {},
+        "daily_log": log_rows[0] if log_rows else {},
+        "daily_goals": goal_rows[0] if goal_rows else {},
     }
 
 
@@ -284,7 +287,7 @@ async def leaderboard():
         supabase = get_supabase_client()
 
         # Fetch all users
-        users_resp = supabase.table("users").select("id, name, email").execute()
+        users_resp = supabase.table("users").select("id, full_name, email").execute()
         users = users_resp.data or []
 
         # Fetch today's logs for all users
@@ -303,7 +306,7 @@ async def leaderboard():
             board.append(
                 {
                     "user_id": uid,
-                    "name": user.get("name") or user.get("email", "Unknown"),
+                    "name": user.get("full_name") or user.get("email", "Unknown"),
                     "total_calories": log.get("total_calories", 0.0),
                     "total_protein": log.get("total_protein", 0.0),
                     "total_fat": log.get("total_fat", 0.0),
